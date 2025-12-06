@@ -59,8 +59,13 @@ async function run() {
 
     const db = client.db("loanLink");
     const loansCollection = db.collection("loans");
-
+    //  get loans for home page
     app.get("/loans-home", async (req, res) => {
+      const result = await loansCollection.find({ showOnHome: true }).toArray();
+      res.send(result);
+    });
+    // get all loans 
+    app.get("/loans", async (req, res) => {
       const result = await loansCollection.find({}).toArray();
       res.send(result);
     });
