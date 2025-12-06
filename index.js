@@ -60,6 +60,7 @@ async function run() {
     const db = client.db("loanLink");
     const loansCollection = db.collection("loans");
     const usersCollection = db.collection("users");
+    const applicationsCollection = db.collection("applications");
     //  get loans for home page
     app.get("/loans-home", async (req, res) => {
       const result = await loansCollection.find({ showOnHome: true }).toArray();
@@ -79,12 +80,17 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/my-loan/:email', async(req, res) => {
+      const result = await applicationsCollection.find({userEmail: req.params.email}).toArray()
+      res.send(result)
+    })
+
     // save or update a user in db
     app.post("/user", async (req, res) => {
       const userData = req.body;
       userData.created_at = new Date().toISOString();
       userData.last_loggedIn = new Date().toISOString();
-      userData.role = userData.role || "customer";
+      userData.role = userData.role || "borrower";
       userData.status = "active";
       const query = {
         email: userData.email,
@@ -108,7 +114,14 @@ async function run() {
       res.send(result);
     });
 
-    // get user role 
+    //loan application save in db 
+    app.post('/loan/application', async(req, res)=>{
+      const data = req.body
+      const result = await applicationsCollection.insertOne(data)
+      res.send({result, success: true})
+    })
+
+    // get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
       const result = await usersCollection.findOne({ email: req.tokenEmail });
       res.send({ role: result?.role });
