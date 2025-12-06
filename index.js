@@ -2,7 +2,7 @@ require("dotenv").config();
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
 const port = process.env.PORT || 3000;
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
@@ -59,15 +59,59 @@ async function run() {
 
     const db = client.db("loanLink");
     const loansCollection = db.collection("loans");
+    const usersCollection = db.collection("users");
     //  get loans for home page
     app.get("/loans-home", async (req, res) => {
       const result = await loansCollection.find({ showOnHome: true }).toArray();
       res.send(result);
     });
-    // get all loans 
+    // get all loans
     app.get("/loans", async (req, res) => {
       const result = await loansCollection.find({}).toArray();
       res.send(result);
+    });
+    // get loan details
+    app.get("/loan-details/:id", async (req, res) => {
+      console.log(req.params.id);
+      const result = await loansCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.send(result);
+    });
+
+    // save or update a user in db
+    app.post("/user", async (req, res) => {
+      const userData = req.body;
+      userData.created_at = new Date().toISOString();
+      userData.last_loggedIn = new Date().toISOString();
+      userData.role = userData.role || "customer";
+      userData.status = "active";
+      const query = {
+        email: userData.email,
+      };
+
+      const alreadyExists = await usersCollection.findOne(query);
+      console.log("User Already Exists---> ", !!alreadyExists);
+
+      if (alreadyExists) {
+        console.log("Updating user info......");
+        const result = await usersCollection.updateOne(query, {
+          $set: {
+            last_loggedIn: new Date().toISOString(),
+          },
+        });
+        return res.send(result);
+      }
+
+      console.log("Saving new user info......");
+      const result = await usersCollection.insertOne(userData);
+      res.send(result);
+    });
+
+    // get user role 
+    app.get("/user/role", verifyJWT, async (req, res) => {
+      const result = await usersCollection.findOne({ email: req.tokenEmail });
+      res.send({ role: result?.role });
     });
 
     // Send a ping to confirm a successful connection
