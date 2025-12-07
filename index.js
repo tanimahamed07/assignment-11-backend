@@ -95,7 +95,7 @@ async function run() {
       });
       res.send(result);
     });
-
+    // update loan data
     app.patch("/update-loan/:id", async (req, res) => {
       const id = req.params.id;
       const updatedData = req.body;
@@ -122,15 +122,22 @@ async function run() {
       res.send(result);
     });
 
+
+    // get approved user loan application
+    app.get("/approved-loans", async (req, res) => {
+      const result = await applicationsCollection
+        .find({ status: "Approved" })
+        .toArray();
+      res.send(result);
+    });
+
     // loan application status update from manager
 
     app.patch("/update-status/:id", async (req, res) => {
       const id = req.params.id;
       const { status } = req.body;
 
-
       const updateData = { status };
-
 
       if (status === "Approved") {
         updateData.approvedAt = new Date();
