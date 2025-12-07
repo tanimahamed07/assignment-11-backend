@@ -114,14 +114,40 @@ async function run() {
       res.send(result);
     });
 
+    // get pending user loan application
+    app.get("/pending-loans", async (req, res) => {
+      const result = await applicationsCollection
+        .find({ status: "Pending" })
+        .toArray();
+      res.send(result);
+    });
+
+    // loan application status update from manager
+
+    app.patch("/update-status/:id", async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+
+
+      const updateData = { status };
+
+
+      if (status === "Approved") {
+        updateData.approvedAt = new Date();
+      }
+
+      const result = await applicationsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateData }
+      );
+    });
+
     // delete loan
     app.delete("/loan-delete/:id", async (req, res) => {
       const id = req.params.id;
       const result = await loansCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     });
-
-    // add loans in db
 
     //dealate user lone
     app.delete("/loan-application/:id", async (req, res) => {
