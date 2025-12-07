@@ -65,13 +65,18 @@ async function run() {
     const applicationsCollection = db.collection("applications");
 
     //  get loans for home page
-    app.post('/loans', async(req, res) => {
-      const loan = req.body
-      const result = await loansCollection.insertOne(loan)
-      res.send(result)
-    })
+    app.post("/loans", async (req, res) => {
+      const loan = req.body;
+      const result = await loansCollection.insertOne(loan);
+      res.send(result);
+    });
 
+    // get all loans
 
+    app.get("/all-loans", async (req, res) => {
+      const result = await loansCollection.find({}).toArray();
+      res.send(result);
+    });
 
     app.get("/loans-home", async (req, res) => {
       const result = await loansCollection.find({ showOnHome: true }).toArray();
@@ -98,8 +103,15 @@ async function run() {
       res.send(result);
     });
 
-    // add loans in db 
 
+    // delete loan 
+    app.delete('/loan-delete/:id',async (req, res) => {
+      const id = req.params.id
+      const result = await loansCollection.deleteOne({_id : new ObjectId(id)})
+      res.send(result)
+    })
+
+    // add loans in db
 
     //dealate user lone
     app.delete("/loan-application/:id", async (req, res) => {
