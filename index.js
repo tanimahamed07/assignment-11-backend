@@ -95,6 +95,17 @@ async function run() {
       });
       res.send(result);
     });
+
+    app.patch("/update-loan/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedData,
+      };
+      const result = await loansCollection.updateOne(query, updateDoc);
+    });
+
     // get user lone
     app.get("/my-loan/:email", async (req, res) => {
       const result = await applicationsCollection
@@ -103,13 +114,12 @@ async function run() {
       res.send(result);
     });
 
-
-    // delete loan 
-    app.delete('/loan-delete/:id',async (req, res) => {
-      const id = req.params.id
-      const result = await loansCollection.deleteOne({_id : new ObjectId(id)})
-      res.send(result)
-    })
+    // delete loan
+    app.delete("/loan-delete/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await loansCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
 
     // add loans in db
 
