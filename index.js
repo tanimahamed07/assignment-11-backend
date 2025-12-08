@@ -118,7 +118,13 @@ async function run() {
       const result = await loansCollection.updateOne(query, updateDoc);
     });
 
-    // get user lone
+    // get all loan application
+    app.get("/all-loans-application", async (req, res) => {
+      const result = await applicationsCollection.find({}).toArray();
+      res.send(result);
+    });
+
+    // get user lone application
     app.get("/my-loan/:email", async (req, res) => {
       const result = await applicationsCollection
         .find({ userEmail: req.params.email })
@@ -306,13 +312,20 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/update-role", verifyADMIN, async (req, res) => {
+    // get user profile
+    app.get("/user-profile/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      res.send(result)
+    });
+
+    app.patch("/update-role", verifyJWT, verifyADMIN, async (req, res) => {
       const { email, role } = req.body;
       const result = await usersCollection.updateOne(
         { email },
         { $set: { role } }
       );
-      await sellerRequestsCollection.deleteOne({ email });
+      // await usersCollection.({ email });
 
       res.send(result);
     });
