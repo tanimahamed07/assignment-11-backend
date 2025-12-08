@@ -64,6 +64,18 @@ async function run() {
     const usersCollection = db.collection("users");
     const applicationsCollection = db.collection("applications");
 
+    // verifyADMIN
+    const verifyADMIN = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await usersCollection.findOne({ email });
+      if (user?.role !== "admin")
+        return res
+          .status(403)
+          .send({ message: "Admin only Actions!", role: user?.role });
+
+      next();
+    };
+
     //  get loans for home page
     app.post("/loans", async (req, res) => {
       const loan = req.body;
@@ -121,7 +133,6 @@ async function run() {
         .toArray();
       res.send(result);
     });
-
 
     // get approved user loan application
     app.get("/approved-loans", async (req, res) => {
@@ -284,6 +295,26 @@ async function run() {
       const data = req.body;
       const result = await applicationsCollection.insertOne(data);
       res.send({ result, success: true });
+    });
+
+    // get all user for admin manage
+    app.get("/users", verifyJWT, async (req, res) => {
+      const adminEmail = req.tokenEmail;
+      const result = await usersCollection
+        .find({ email: { $ne: adminEmail } })
+        .toArray();
+      res.send(result);
+    });
+
+    app.patch("/update-role", verifyADMIN, async (req, res) => {
+      const { email, role } = req.body;
+      const result = await usersCollection.updateOne(
+        { email },
+        { $set: { role } }
+      );
+      await sellerRequestsCollection.deleteOne({ email });
+
+      res.send(result);
     });
 
     // get user role
