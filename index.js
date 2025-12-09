@@ -63,6 +63,7 @@ async function run() {
     const loansCollection = db.collection("loans");
     const usersCollection = db.collection("users");
     const applicationsCollection = db.collection("applications");
+    const suspendCollection = db.collection("suspends");
 
     // verifyADMIN
     const verifyADMIN = async (req, res, next) => {
@@ -75,9 +76,32 @@ async function run() {
 
       next();
     };
+    // verifyBorrower
+    const verifyBorrower = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await usersCollection.findOne({ email });
+      if (user?.role !== "borrower")
+        return res
+          .status(403)
+          .send({ message: "borrower only Actions!", role: user?.role });
+
+      next();
+    };
+
+    // verifyManager
+    const verifyManager = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await usersCollection.findOne({ email });
+      if (user?.role !== "manager")
+        return res
+          .status(403)
+          .send({ message: "manager only Actions!", role: user?.role });
+
+      next();
+    };
 
     //  get loans for home page
-    app.post("/loans", async (req, res) => {
+    app.post("/loans", verifyJWT, verifyADMIN, async (req, res) => {
       const loan = req.body;
       const result = await loansCollection.insertOne(loan);
       res.send(result);
@@ -85,15 +109,26 @@ async function run() {
 
     // get all loans
 
-    app.get("/all-loans", async (req, res) => {
+    app.get("/all-loans", verifyJWT, verifyADMIN, async (req, res) => {
+      const result = await loansCollection.find({}).toArray();
+      res.send(result);
+    });
+    // manage loans
+    app.get("/all-loans/manage", verifyJWT, verifyManager, async (req, res) => {
       const result = await loansCollection.find({}).toArray();
       res.send(result);
     });
 
     app.get("/loans-home", async (req, res) => {
-      const result = await loansCollection.find({ showOnHome: true }).toArray();
+      const result = await loansCollection
+        .find({ showOnHome: true })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .toArray();
+
       res.send(result);
     });
+
     // get all loans
     app.get("/loans", async (req, res) => {
       const result = await loansCollection.find({}).toArray();
@@ -119,13 +154,22 @@ async function run() {
     });
 
     // get all loan application
-    app.get("/all-loans-application", async (req, res) => {
+    app.get("/all-loans-application/statistic", async (req, res) => {
       const result = await applicationsCollection.find({}).toArray();
       res.send(result);
     });
+    app.get(
+      "/all-loans-application",
+      verifyJWT,
+      verifyADMIN,
+      async (req, res) => {
+        const result = await applicationsCollection.find({}).toArray();
+        res.send(result);
+      }
+    );
 
     // get user lone application
-    app.get("/my-loan/:email", async (req, res) => {
+    app.get("/my-loan/:email", verifyJWT, verifyBorrower, async (req, res) => {
       const result = await applicationsCollection
         .find({ userEmail: req.params.email })
         .toArray();
@@ -133,7 +177,7 @@ async function run() {
     });
 
     // get pending user loan application
-    app.get("/pending-loans", async (req, res) => {
+    app.get("/pending-loans", verifyJWT, verifyManager, async (req, res) => {
       const result = await applicationsCollection
         .find({ status: "Pending" })
         .toArray();
@@ -141,7 +185,7 @@ async function run() {
     });
 
     // get approved user loan application
-    app.get("/approved-loans", async (req, res) => {
+    app.get("/approved-loans", verifyJWT, verifyManager, async (req, res) => {
       const result = await applicationsCollection
         .find({ status: "Approved" })
         .toArray();
@@ -316,7 +360,7 @@ async function run() {
     app.get("/user-profile/:email", async (req, res) => {
       const email = req.params.email;
       const result = await usersCollection.findOne({ email });
-      res.send(result)
+      res.send(result);
     });
 
     app.patch("/update-role", verifyJWT, verifyADMIN, async (req, res) => {
@@ -334,6 +378,27 @@ async function run() {
     app.get("/user/role", verifyJWT, async (req, res) => {
       const result = await usersCollection.findOne({ email: req.tokenEmail });
       res.send({ role: result?.role });
+    });
+
+    // SUSPEND USER
+    app.patch("/users/suspend/:id", async (req, res) => {
+      const id = req.params.id;
+      const { reason, feedback } = req.body;
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            status: "suspended",
+            suspendReason: reason,
+            suspendFeedback: feedback,
+            suspendedAt: new Date(),
+          },
+        }
+      );
+      res.send({
+        success: true,
+        result,
+      });
     });
 
     // Send a ping to confirm a successful connection
