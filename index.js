@@ -6,7 +6,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8088;
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
   "utf-8"
 );
@@ -57,7 +57,7 @@ const client = new MongoClient(process.env.MONGODB_URI, {
 });
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     const db = client.db("loanLink");
     const loansCollection = db.collection("loans");
@@ -101,7 +101,7 @@ async function run() {
     };
 
     //  get loans for home page
-    app.post("/loans", verifyJWT, verifyADMIN, async (req, res) => {
+    app.post("/loans", verifyJWT, verifyManager, async (req, res) => {
       const loan = req.body;
       const result = await loansCollection.insertOne(loan);
       res.send(result);
@@ -151,6 +151,7 @@ async function run() {
         $set: updatedData,
       };
       const result = await loansCollection.updateOne(query, updateDoc);
+      res.send(result);
     });
 
     // get all loan application
@@ -348,12 +349,44 @@ async function run() {
     });
 
     // get all user for admin manage
-    app.get("/users", verifyJWT, async (req, res) => {
-      const adminEmail = req.tokenEmail;
-      const result = await usersCollection
-        .find({ email: { $ne: adminEmail } })
-        .toArray();
-      res.send(result);
+    // GET /users?page=1&limit=5&role=manager&search=john
+    app.get("/users", verifyJWT, verifyADMIN, async (req, res) => {
+      try {
+        const adminEmail = req.tokenEmail;
+
+        // Pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const search = req.query.search || "";
+        const role = req.query.role || "";
+
+        // Build filter query
+        const query = { email: { $ne: adminEmail } };
+
+        if (role) query.role = role;
+        if (search) {
+          query.$or = [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+          ];
+        }
+
+        // Count total users matching query
+        const totalUsers = await usersCollection.countDocuments(query);
+        const totalPages = Math.ceil(totalUsers / limit);
+
+        // Fetch users for current page
+        const users = await usersCollection
+          .find(query)
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .toArray();
+
+        res.send({ users, totalPages, currentPage: page });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error" });
+      }
     });
 
     // get user profile
@@ -402,10 +435,10 @@ async function run() {
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
   }
