@@ -21,9 +21,9 @@ const app = express();
 app.use(
   cors({
     origin: [
+      "https://loan-link.netlify.app",
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://b12-m11-session.web.app",
     ],
     credentials: true,
     optionSuccessStatus: 200,
