@@ -1,12 +1,11 @@
 require("dotenv").config();
-require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
-const port = process.env.PORT || 8088;
+const port = process.env.PORT || 3000;
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
   "utf-8"
 );
@@ -63,7 +62,6 @@ async function run() {
     const loansCollection = db.collection("loans");
     const usersCollection = db.collection("users");
     const applicationsCollection = db.collection("applications");
-    const suspendCollection = db.collection("suspends");
 
     // verifyADMIN
     const verifyADMIN = async (req, res, next) => {
@@ -130,10 +128,46 @@ async function run() {
     });
 
     // get all loans
-    app.get("/loans", async (req, res) => {
-      const result = await loansCollection.find({}).toArray();
-      res.send(result);
+app.get("/loans", async (req, res) => {
+  try {
+    const { search, category, sort, page = 1, limit = 8 } = req.query;
+    
+    // Safety Parsing
+    const pageNumber = Math.max(1, parseInt(page));
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    let query = {};
+    if (search) {
+      query.title = { $regex: search, $options: "i" };
+    }
+    if (category && category !== "All") {
+      query.category = category;
+    }
+
+    let sortOptions = {};
+    if (sort === "lowToHigh") sortOptions.maxLimit = 1;
+    else if (sort === "highToLow") sortOptions.maxLimit = -1;
+    else sortOptions._id = -1; // Default: Newest
+
+    const loans = await loansCollection
+      .find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNumber)
+      .toArray();
+
+    const total = await loansCollection.countDocuments(query);
+
+    res.send({
+      loans,
+      total,
+      totalPages: Math.ceil(total / limitNumber),
     });
+  } catch (error) {
+    res.status(500).send({ message: "Error fetching loans", error: error.message });
+  }
+});
     // get loan details
     app.get("/loan-details/:id", async (req, res) => {
       console.log(req.params.id);
